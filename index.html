@@ -135,9 +135,19 @@
     overflow: hidden;
     display: grid;
     place-items: center;
+    position: relative;
     color: var(--suave);
   }
-  .video iframe, .video video { width: 100%; height: 100%; border: 0; background: #000; object-fit: contain; }
+  /* Posição absoluta: o tamanho original do arquivo não estica a caixa nem corta o vídeo */
+  .video iframe, .video video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: #000;
+    object-fit: contain;
+  }
   .palco a { color: var(--destaque); }
   .externo { margin-top: .7rem; font-size: .95rem; }
   .externo:empty { display: none; }
@@ -169,6 +179,7 @@
     border-left: 3px solid var(--destaque);
     font-style: italic;
   }
+  .bloco.fonte p { color: var(--suave); font-size: .95rem; }
 
   @media (max-width: 760px) {
     main { grid-template-columns: 1fr; }
@@ -207,6 +218,11 @@
     <div class="bloco exemplo" id="bloco-exemplo" hidden>
       <h3 class="secao-titulo">Exemplo</h3>
       <p id="exemplo"></p>
+    </div>
+
+    <div class="bloco fonte" id="bloco-fonte" hidden>
+      <h3 class="secao-titulo">Fonte</h3>
+      <p id="fonte"></p>
     </div>
   </section>
 </main>
@@ -279,9 +295,37 @@
     document.getElementById("bloco-" + campo).hidden = !texto;
   }
 
+  // Fonte (coluna E): "Nome", "Nome | https://link" ou só "https://link"
+  function preencherFonte(texto) {
+    const p = document.getElementById("fonte");
+    const bloco = document.getElementById("bloco-fonte");
+    p.textContent = "";
+    bloco.hidden = !texto;
+    if (!texto) return;
+    const [nome, url] = texto.split("|").map(s => s.trim());
+    const ehUrl = s => /^https?:\/\//i.test(s || "");
+    const link = ehUrl(url) ? url : ehUrl(nome) ? nome : "";
+    if (link) {
+      const a = document.createElement("a");
+      a.href = link;
+      a.target = "_blank";
+      a.rel = "noopener";
+      let rotulo = nome;
+      if (ehUrl(nome)) {
+        try { rotulo = new URL(nome).hostname.replace(/^www\./, ""); }
+        catch { rotulo = nome; }
+      }
+      a.textContent = rotulo || link;
+      p.appendChild(a);
+    } else {
+      p.textContent = nome;
+    }
+  }
+
   function mostrar(slugTermo) {
     const item = itens.find(i => i.slug === slugTermo);
     if (!item) return;
+    preencherFonte(item.fonte);
     document.getElementById("titulo").textContent = item.termo + (item.variacao > 1 ? ` (${item.variacao})` : "");
     const elVideo = document.getElementById("video");
     const elExterno = document.getElementById("externo");
@@ -339,12 +383,13 @@
     .then(texto => {
       if (texto.trim().startsWith("<")) throw new Error("O Google devolveu uma página em vez do CSV (planilha não pública ou link errado)");
       itens = lerCSV(texto)
-        .slice(1) // pula o cabeçalho (TERMO, LINK, DEFINIÇÃO, EXEMPLO)
+        .slice(1) // pula o cabeçalho (TERMO, LINK, DEFINIÇÃO, EXEMPLO, FONTE)
         .map(l => ({
           termo:     (l[0] || "").trim(), // coluna A
           link:      (l[1] || "").trim(), // coluna B (link do sinal ou equivalente)
           definicao: (l[2] || "").trim(), // coluna C
-          exemplo:   (l[3] || "").trim()  // coluna D
+          exemplo:   (l[3] || "").trim(), // coluna D
+          fonte:     (l[4] || "").trim()  // coluna E (canal do YouTube ou site)
         }))
         .map(i => {
           // Se a coluna B não for um link, o texto dela é o equivalente
