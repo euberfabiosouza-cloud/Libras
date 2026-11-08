@@ -452,20 +452,51 @@
   elBusca.addEventListener("input", () => desenharLista(elBusca.value));
   window.addEventListener("hashchange", () => mostrar(location.hash.slice(1)));
 
-  fetch(URL_CSV)
+  // Descobre a coluna de cada campo pelo nome do cabeçalho da planilha.
+  // Se algum nome não for encontrado, usa a posição: A, B, C, D, E, F, G.
+  function mapaColunas(cabecalho) {
+    const h = cabecalho.map(c => normalizar(c).replace(/[^a-z0-9]+/g, " ").trim());
+    const achar = (...partes) => h.findIndex(x => partes.every(p => x.includes(p)));
+    const idx = {
+      termo:     achar("termo"),
+      midia1:    achar("equival", "1"),
+      midia2:    achar("equival", "2"),
+      definicao: achar("defin"),
+      exemplo:   achar("exemplo"),
+      fonte:     achar("fonte"),
+      categoria: achar("categ")
+    };
+    const posicao = { termo: 0, midia1: 1, midia2: 2, definicao: 3, exemplo: 4, fonte: 5, categoria: 6 };
+    for (const k in posicao) if (idx[k] < 0) idx[k] = posicao[k];
+    return idx;
+  }
+
+  // Ignora células vazias, só com traço e mensagens de erro coladas na planilha
+  function limpar(valor) {
+    const s = (valor || "").trim();
+    return (/^\[erro\s*\d+/i.test(s) || s === "—") ? "" : s;
+  }
+
+  // O parâmetro extra evita receber uma cópia antiga guardada pelo navegador
+  const urlSemCache = URL_CSV + (URL_CSV.includes("?") ? "&" : "?") + "_=" + Date.now();
+
+  fetch(urlSemCache, { cache: "no-store" })
     .then(r => { if (!r.ok) throw new Error("A planilha respondeu com erro " + r.status); return r.text(); })
     .then(texto => {
       if (texto.trim().startsWith("<")) throw new Error("O Google devolveu uma página em vez do CSV (planilha não pública ou link errado)");
-      itens = lerCSV(texto)
+      const linhas = lerCSV(texto);
+      const col = mapaColunas(linhas[0] || []);
+      const pegar = (l, k) => limpar(l[col[k]]);
+      itens = linhas
         .slice(1) // pula o cabeçalho
         .map(l => ({
-          termo:     (l[0] || "").trim(), // A: TERMO
-          midia1:    (l[1] || "").trim(), // B: LINK-EQUIVALÊNCIA-1
-          midia2:    (l[2] || "").trim(), // C: LINK-EQUIVALÊNCIA-2
-          definicao: (l[3] || "").trim(), // D: DEFINIÇÃO
-          exemplo:   (l[4] || "").trim(), // E: EXEMPLO
-          fonte:     (l[5] || "").trim(), // F: FONTE
-          categoria: (l[6] || "").trim()  // G: CATEGORIA
+          termo:     pegar(l, "termo"),     // A: TERMO
+          midia1:    pegar(l, "midia1"),    // B: LINK-EQUIVALÊNCIA-1
+          midia2:    pegar(l, "midia2"),    // C: LINK-EQUIVALÊNCIA-2
+          definicao: pegar(l, "definicao"), // D: DEFINIÇÃO
+          exemplo:   pegar(l, "exemplo"),   // E: EXEMPLO
+          fonte:     pegar(l, "fonte"),     // F: FONTE
+          categoria: pegar(l, "categoria")  // G: CATEGORIA
         }))
         .filter(i => i.termo && (i.midia1 || i.midia2))
         .sort((a, b) => a.termo.localeCompare(b.termo, "pt-BR"));
