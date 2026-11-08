@@ -9,8 +9,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Literata:opsz,wght@7..72,500;7..72,700&display=swap" rel="stylesheet">
 <style>
   /* =========================================================
-     CONFIGURAÇÃO: troque pelo ID da sua planilha e nome da aba
-     O ID fica na URL: docs.google.com/spreadsheets/d/<ID>/edit
+     Colunas da planilha:
+     A TERMO | B LINK-EQUIVALÊNCIA-1 | C LINK-EQUIVALÊNCIA-2
+     D DEFINIÇÃO | E EXEMPLO | F FONTE | G CATEGORIA
      ========================================================= */
   :root {
     --tinta: #1B2430;
@@ -119,14 +120,45 @@
   .aviso { padding: 1rem; color: var(--suave); }
   .var { color: var(--suave); font-weight: 400; }
 
-  /* Player */
+  /* Palco */
   .palco { position: sticky; top: 1rem; }
+  .cabecalho-termo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .5rem 1rem;
+    margin: 0 0 1rem;
+  }
   .palco h2 {
     font-family: "Literata", Georgia, serif;
     font-weight: 500;
     font-size: clamp(1.5rem, 3vw, 2.2rem);
-    margin: 0 0 1rem;
+    line-height: 1.15;
+    margin: 0;
   }
+  /* Etiqueta da categoria (coluna G) */
+  .etiqueta {
+    display: inline-block;
+    padding: .15rem .75rem;
+    border-radius: 999px;
+    background: var(--destaque-claro);
+    color: var(--destaque);
+    border: 1px solid var(--destaque);
+    font-size: .9rem;
+    font-weight: 700;
+    line-height: 1.5;
+  }
+  .etiqueta[hidden] { display: none; }
+
+  /* Até duas mídias lado a lado; em telas estreitas ficam empilhadas */
+  .midias {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+    gap: 1.2rem;
+    align-items: start;
+  }
+  .midia { margin: 0; min-width: 0; }
+
   .video {
     aspect-ratio: 16 / 9;
     background: var(--papel);
@@ -137,6 +169,8 @@
     place-items: center;
     position: relative;
     color: var(--suave);
+    text-align: center;
+    padding: 0 1rem;
   }
   /* Posição absoluta: o tamanho original do arquivo não estica a caixa nem corta o vídeo */
   .video iframe, .video video {
@@ -149,9 +183,9 @@
     object-fit: contain;
   }
   .palco a { color: var(--destaque); }
-  .externo { margin-top: .7rem; font-size: .95rem; }
+  .externo { margin: .7rem 0 0; font-size: .95rem; }
   .externo:empty { display: none; }
-  /* Termo sem vídeo: a caixa mostra o equivalente em texto */
+  /* Sem vídeo: a caixa mostra o equivalente em texto */
   .video.equivalente {
     aspect-ratio: auto;
     min-height: 9rem;
@@ -163,7 +197,6 @@
     font-weight: 500;
     font-size: clamp(1.4rem, 3vw, 2rem);
     line-height: 1.25;
-    text-align: center;
   }
   .secao-titulo {
     font-family: "Literata", Georgia, serif;
@@ -180,6 +213,7 @@
     font-style: italic;
   }
   .bloco.fonte p { color: var(--suave); font-size: .95rem; }
+  .vazio { color: var(--suave); }
 
   @media (max-width: 760px) {
     main { grid-template-columns: 1fr; }
@@ -204,11 +238,14 @@
   </section>
 
   <section class="palco" aria-live="polite">
-    <h2 id="titulo">Nenhum termo selecionado</h2>
+    <div class="cabecalho-termo">
+      <h2 id="titulo">Nenhum termo selecionado</h2>
+      <span class="etiqueta" id="categoria" hidden></span>
+    </div>
 
-    <h3 class="secao-titulo" id="rotulo-sinal">Sinal em Libras</h3>
-    <div class="video" id="video">Selecione um termo na lista</div>
-    <p class="externo" id="externo"></p>
+    <div class="midias" id="midias">
+      <p class="vazio">Selecione um termo na lista</p>
+    </div>
 
     <div class="bloco" id="bloco-definicao" hidden>
       <h3 class="secao-titulo">Definição</h3>
@@ -241,6 +278,7 @@
 
   const elLista = document.getElementById("termos");
   const elBusca = document.getElementById("busca");
+  const elMidias = document.getElementById("midias");
   let itens = [];
 
   // Lê CSV respeitando aspas e vírgulas dentro do texto
@@ -268,14 +306,16 @@
     return m ? m[1] : null;
   }
 
+  const ehUrl = s => /^https?:\/\//i.test(s || "");
   const normalizar = s => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const slug = s => normalizar(s).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
   function desenharLista(filtro = "") {
     const f = normalizar(filtro.trim());
     const visiveis = itens.filter(i => normalizar(i.termo).includes(f));
     if (!visiveis.length) {
-      elLista.innerHTML = `<p class="aviso">Nenhum termo encontrado para “${filtro}”.</p>`;
+      elLista.innerHTML = `<p class="aviso">Nenhum termo encontrado para “${esc(filtro)}”.</p>`;
       return;
     }
     let html = "", letraAtual = "";
@@ -284,7 +324,7 @@
       if (letra !== letraAtual) { html += `<div class="letra">${letra}</div>`; letraAtual = letra; }
       const atual = location.hash.slice(1) === item.slug;
       const extra = item.variacao > 1 ? ` <span class="var">(${item.variacao})</span>` : "";
-      html += `<button class="termo" data-slug="${item.slug}" aria-current="${atual}">${item.termo}${extra}</button>`;
+      html += `<button class="termo" data-slug="${item.slug}" aria-current="${atual}">${esc(item.termo)}${extra}</button>`;
     }
     elLista.innerHTML = html;
   }
@@ -295,7 +335,7 @@
     document.getElementById("bloco-" + campo).hidden = !texto;
   }
 
-  // Fonte (coluna E): "Nome", "Nome | https://link" ou só "https://link"
+  // Fonte (coluna F): "Nome", "Nome | https://link" ou só "https://link"
   function preencherFonte(texto) {
     const p = document.getElementById("fonte");
     const bloco = document.getElementById("bloco-fonte");
@@ -303,7 +343,6 @@
     bloco.hidden = !texto;
     if (!texto) return;
     const [nome, url] = texto.split("|").map(s => s.trim());
-    const ehUrl = s => /^https?:\/\//i.test(s || "");
     const link = ehUrl(url) ? url : ehUrl(nome) ? nome : "";
     if (link) {
       const a = document.createElement("a");
@@ -322,51 +361,86 @@
     }
   }
 
+  // Monta um bloco de mídia para uma célula (coluna B ou C):
+  // link -> vídeo; texto -> equivalente
+  function criarMidia(valor, titulo, numero, total) {
+    const fig = document.createElement("figure");
+    fig.className = "midia";
+
+    const h = document.createElement("h3");
+    h.className = "secao-titulo";
+    const sufixo = total > 1 ? ` (${numero})` : "";
+
+    const caixa = document.createElement("div");
+    caixa.className = "video";
+    const externo = document.createElement("p");
+    externo.className = "externo";
+
+    if (!ehUrl(valor)) {
+      // Sem link: o texto da célula é o equivalente
+      h.textContent = "Equivalente" + sufixo;
+      caixa.classList.add("equivalente");
+      caixa.textContent = valor;
+    } else {
+      h.textContent = "Sinal em Libras" + sufixo;
+      const id = idYoutube(valor);
+      const ehArquivo = /\.(mp4|webm|mov)(\?|$)/i.test(valor);
+      if (id) {
+        // Repetindo sem parar (loop=1 exige playlist=<mesmo id>),
+        // começando sozinho e sem som (o navegador só permite autoplay com o vídeo mudo)
+        const params = new URLSearchParams({
+          autoplay: 1, mute: 1, loop: 1, playlist: id,
+          controls: 1, disablekb: 1, fs: 0, rel: 0,
+          iv_load_policy: 3, playsinline: 1, modestbranding: 1
+        });
+        const iframe = document.createElement("iframe");
+        iframe.src = `https://www.youtube.com/embed/${id}?${params}`;
+        iframe.title = titulo + sufixo;
+        iframe.allow = "autoplay; encrypted-media; picture-in-picture";
+        caixa.appendChild(iframe);
+      } else if (ehArquivo) {
+        const v = document.createElement("video");
+        v.src = valor;
+        v.controls = true; v.autoplay = true; v.loop = true; v.muted = true;
+        v.setAttribute("playsinline", "");
+        caixa.appendChild(v);
+      } else {
+        caixa.textContent = "Este link não pode ser exibido aqui. Use o link abaixo para abrir o vídeo.";
+      }
+      const a = document.createElement("a");
+      a.href = valor;
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.textContent = id ? "Abrir no YouTube" : "Abrir vídeo original";
+      externo.appendChild(a);
+    }
+
+    fig.append(h, caixa, externo);
+    return fig;
+  }
+
   function mostrar(slugTermo) {
     const item = itens.find(i => i.slug === slugTermo);
     if (!item) return;
-    preencherFonte(item.fonte);
-    document.getElementById("titulo").textContent = item.termo + (item.variacao > 1 ? ` (${item.variacao})` : "");
-    const elVideo = document.getElementById("video");
-    const elExterno = document.getElementById("externo");
-    const elRotulo = document.getElementById("rotulo-sinal");
 
-    // Sem link na coluna B: mostra o equivalente (texto da própria coluna B)
-    if (item.equivalente) {
-      elRotulo.textContent = "Equivalente";
-      elVideo.classList.add("equivalente");
-      elVideo.textContent = item.equivalente;
-      elExterno.innerHTML = "";
-      preencher("definicao", item.definicao);
-      preencher("exemplo", item.exemplo);
-      document.querySelectorAll(".termo").forEach(b =>
-        b.setAttribute("aria-current", b.dataset.slug === slugTermo));
-      return;
-    }
-    elRotulo.textContent = "Sinal em Libras";
-    elVideo.classList.remove("equivalente");
+    document.getElementById("titulo").textContent =
+      item.termo + (item.variacao > 1 ? ` (${item.variacao})` : "");
 
-    const id = idYoutube(item.link);
-    const ehArquivo = /\.(mp4|webm|mov)(\?|$)/i.test(item.link);
-    if (id) {
-      // Sem botões (controls=0), repetindo sem parar (loop=1 exige playlist=<mesmo id>),
-      // começando sozinho e sem som (o navegador só permite autoplay com o vídeo mudo)
-      const params = new URLSearchParams({
-        autoplay: 1, mute: 1, loop: 1, playlist: id,
-        controls: 1, disablekb: 1, fs: 0, rel: 0,
-        iv_load_policy: 3, playsinline: 1, modestbranding: 1
-      });
-      elVideo.innerHTML = `<iframe src="https://www.youtube.com/embed/${id}?${params}" title="${item.termo}" allow="autoplay; encrypted-media; picture-in-picture"></iframe>`;
-    } else if (ehArquivo) {
-      elVideo.innerHTML = `<video src="${item.link}" controls autoplay loop muted playsinline></video>`;
-    } else {
-      elVideo.textContent = "Este link não pode ser exibido aqui. Use o link abaixo para abrir o vídeo.";
-    }
-    elExterno.innerHTML =
-      `<a href="${item.link}" target="_blank" rel="noopener">${id ? "Abrir no YouTube" : "Abrir vídeo original"}</a>`;
-    // Definição (coluna C) e Exemplo (coluna D): só aparecem se preenchidos
+    // Etiqueta da categoria (coluna G): só aparece se preenchida
+    const elCat = document.getElementById("categoria");
+    elCat.textContent = item.categoria;
+    elCat.hidden = !item.categoria;
+
+    // Mídias: uma ou duas, conforme as colunas B e C estiverem preenchidas
+    const valores = [item.midia1, item.midia2].filter(Boolean);
+    elMidias.replaceChildren(
+      ...valores.map((v, i) => criarMidia(v, item.termo, i + 1, valores.length))
+    );
+
     preencher("definicao", item.definicao);
     preencher("exemplo", item.exemplo);
+    preencherFonte(item.fonte);
+
     document.querySelectorAll(".termo").forEach(b =>
       b.setAttribute("aria-current", b.dataset.slug === slugTermo));
   }
@@ -383,20 +457,17 @@
     .then(texto => {
       if (texto.trim().startsWith("<")) throw new Error("O Google devolveu uma página em vez do CSV (planilha não pública ou link errado)");
       itens = lerCSV(texto)
-        .slice(1) // pula o cabeçalho (TERMO, LINK, DEFINIÇÃO, EXEMPLO, FONTE)
+        .slice(1) // pula o cabeçalho
         .map(l => ({
-          termo:     (l[0] || "").trim(), // coluna A
-          link:      (l[1] || "").trim(), // coluna B (link do sinal ou equivalente)
-          definicao: (l[2] || "").trim(), // coluna C
-          exemplo:   (l[3] || "").trim(), // coluna D
-          fonte:     (l[4] || "").trim()  // coluna E (canal do YouTube ou site)
+          termo:     (l[0] || "").trim(), // A: TERMO
+          midia1:    (l[1] || "").trim(), // B: LINK-EQUIVALÊNCIA-1
+          midia2:    (l[2] || "").trim(), // C: LINK-EQUIVALÊNCIA-2
+          definicao: (l[3] || "").trim(), // D: DEFINIÇÃO
+          exemplo:   (l[4] || "").trim(), // E: EXEMPLO
+          fonte:     (l[5] || "").trim(), // F: FONTE
+          categoria: (l[6] || "").trim()  // G: CATEGORIA
         }))
-        .map(i => {
-          // Se a coluna B não for um link, o texto dela é o equivalente
-          if (!/^https?:\/\//i.test(i.link)) { i.equivalente = i.link; i.link = ""; }
-          return i;
-        })
-        .filter(i => i.termo && (i.link || i.equivalente))
+        .filter(i => i.termo && (i.midia1 || i.midia2))
         .sort((a, b) => a.termo.localeCompare(b.termo, "pt-BR"));
       // Termos repetidos ganham número: Gramática (2), Gramática (3)...
       const contagem = {};
@@ -411,7 +482,7 @@
     })
     .catch(err => {
       console.error(err);
-      elLista.innerHTML = `<p class="aviso">Não foi possível ler a planilha.<br><small>Detalhe: ${err.message}</small></p>`;
+      elLista.innerHTML = `<p class="aviso">Não foi possível ler a planilha.<br><small>Detalhe: ${esc(err.message)}</small></p>`;
     });
 </script>
 </body>
