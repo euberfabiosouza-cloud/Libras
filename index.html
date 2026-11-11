@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Acervo Libras</title>
+<!-- Aplica o tema salvo antes de desenhar a página, para não piscar -->
+<script>
+  try {
+    const t = localStorage.getItem("acervo-tema");
+    if (t === "dark" || t === "light") document.documentElement.dataset.theme = t;
+  } catch (e) {}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Literata:opsz,wght@7..72,500;7..72,700&display=swap" rel="stylesheet">
@@ -12,6 +19,7 @@
      Colunas da planilha:
      A TERMO | B LINK-EQUIVALÊNCIA-1 | C LINK-EQUIVALÊNCIA-2
      D DEFINIÇÃO | E EXEMPLO | F FONTE | G CATEGORIA
+     (a coluna G aceita várias categorias separadas por vírgula ou ponto e vírgula)
      ========================================================= */
   :root {
     --tinta: #1B2430;
@@ -23,8 +31,9 @@
     --destaque-claro: #E3F1F0;
     color-scheme: light;
   }
+  /* Escuro automático (sistema), a menos que a pessoa tenha escolhido o claro */
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme="light"]) {
       --tinta: #E6EBF1;
       --fundo: #12171E;
       --papel: #1A212B;
@@ -35,6 +44,17 @@
       color-scheme: dark;
     }
   }
+  /* Escuro escolhido no botão */
+  :root[data-theme="dark"] {
+    --tinta: #E6EBF1;
+    --fundo: #12171E;
+    --papel: #1A212B;
+    --linha: #2C3643;
+    --suave: #9AA6B4;
+    --destaque: #5CC2BF;
+    --destaque-claro: #173332;
+    color-scheme: dark;
+  }
   * { box-sizing: border-box; }
   body {
     margin: 0;
@@ -42,10 +62,21 @@
     color: var(--tinta);
     font: 17px/1.55 "Atkinson Hyperlegible", system-ui, sans-serif;
   }
+  .sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
   header {
     padding: 2.5rem 1.5rem 1.5rem;
     max-width: 1200px;
     margin: 0 auto;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
   }
   h1 {
     font-family: "Literata", Georgia, serif;
@@ -56,6 +87,29 @@
     letter-spacing: -.01em;
   }
   header p { margin: 0; color: var(--suave); }
+
+  /* Botões em forma de pílula (tema, favorito) */
+  .pilula {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    font: inherit;
+    font-size: .95rem;
+    font-weight: 700;
+    color: var(--tinta);
+    background: var(--papel);
+    border: 1px solid var(--linha);
+    border-radius: 999px;
+    padding: .45rem .9rem;
+    cursor: pointer;
+  }
+  .pilula:hover { border-color: var(--destaque); color: var(--destaque); }
+  .pilula:focus-visible { outline: 2px solid var(--destaque); outline-offset: 2px; }
+  .pilula[hidden] { display: none; }
+  .pilula svg { width: 1.1rem; height: 1.1rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .pilula[aria-pressed="true"].favorito { color: var(--destaque); border-color: var(--destaque); background: var(--destaque-claro); }
+  .pilula[aria-pressed="true"].favorito svg { fill: currentColor; }
 
   main {
     max-width: 1200px;
@@ -77,7 +131,6 @@
   .busca {
     padding: .9rem;
     border-bottom: 1px solid var(--linha);
-    position: sticky; top: 0;
     background: var(--papel);
   }
   .busca input {
@@ -90,7 +143,69 @@
     color: var(--tinta);
   }
   .busca input:focus { outline: 2px solid var(--destaque); outline-offset: 1px; }
-  #termos { max-height: 70vh; overflow-y: auto; }
+
+  /* Filtro por categoria */
+  .filtros {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem;
+    margin-top: .7rem;
+    max-height: 7.5rem;
+    overflow-y: auto;
+  }
+  .filtros:empty { display: none; }
+  .chip {
+    font: inherit;
+    font-size: .88rem;
+    line-height: 1.4;
+    padding: .2rem .7rem;
+    border-radius: 999px;
+    border: 1px solid var(--linha);
+    background: var(--papel);
+    color: var(--tinta);
+    cursor: pointer;
+  }
+  .chip:hover { border-color: var(--destaque); }
+  .chip:focus-visible { outline: 2px solid var(--destaque); outline-offset: 1px; }
+  .chip[aria-pressed="true"] {
+    background: var(--destaque);
+    border-color: var(--destaque);
+    color: var(--papel);
+    font-weight: 700;
+  }
+  .chip .n { opacity: .7; font-weight: 400; }
+  .resumo {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: .5rem;
+    margin-top: .7rem;
+    font-size: .9rem;
+    color: var(--suave);
+  }
+  .limpar {
+    font: inherit;
+    font-size: .9rem;
+    color: var(--destaque);
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    text-decoration: underline;
+  }
+  .limpar[hidden] { display: none; }
+  .limpar:focus-visible { outline: 2px solid var(--destaque); outline-offset: 2px; }
+  .status {
+    margin: .6rem 0 0;
+    padding: .4rem .7rem;
+    font-size: .88rem;
+    color: var(--tinta);
+    background: var(--destaque-claro);
+    border-radius: 6px;
+  }
+  .status[hidden] { display: none; }
+
+  #termos { max-height: 62vh; overflow-y: auto; }
   .letra {
     font-family: "Literata", Georgia, serif;
     font-weight: 700;
@@ -119,6 +234,21 @@
   }
   .aviso { padding: 1rem; color: var(--suave); }
   .var { color: var(--suave); font-weight: 400; }
+  .estrela { color: var(--destaque); margin-left: .35rem; font-size: .9em; }
+
+  /* Esqueleto de carregamento */
+  .esq {
+    height: .9rem;
+    margin: .95rem 1rem;
+    border-radius: 4px;
+    background: var(--linha);
+    animation: pulso 1.4s ease-in-out infinite;
+  }
+  .esq.letra-esq { width: 1.2rem; height: 1.1rem; margin-bottom: .3rem; background: var(--destaque-claro); }
+  @keyframes pulso { 50% { opacity: .45; } }
+  @media (prefers-reduced-motion: reduce) {
+    .esq { animation: none; }
+  }
 
   /* Palco */
   .palco { position: sticky; top: 1rem; }
@@ -136,9 +266,12 @@
     line-height: 1.15;
     margin: 0;
   }
-  /* Etiqueta da categoria (coluna G) */
+  .etiquetas { display: flex; flex-wrap: wrap; gap: .4rem; }
+  .etiquetas:empty { display: none; }
+  /* Etiqueta da categoria (coluna G): clicar filtra a lista por ela */
   .etiqueta {
     display: inline-block;
+    font: inherit;
     padding: .15rem .75rem;
     border-radius: 999px;
     background: var(--destaque-claro);
@@ -147,8 +280,23 @@
     font-size: .9rem;
     font-weight: 700;
     line-height: 1.5;
+    cursor: pointer;
   }
-  .etiqueta[hidden] { display: none; }
+  .etiqueta:hover { background: var(--destaque); color: var(--papel); }
+  .etiqueta:focus-visible { outline: 2px solid var(--destaque); outline-offset: 2px; }
+
+  /* Velocidade do vídeo */
+  .velocidade {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .4rem;
+    margin: 0 0 1rem;
+    font-size: .9rem;
+    color: var(--suave);
+  }
+  .velocidade[hidden] { display: none; }
+  .velocidade .rotulo { margin-right: .3rem; }
 
   /* Até duas mídias lado a lado; em telas estreitas ficam empilhadas */
   .midias {
@@ -216,6 +364,7 @@
   .vazio { color: var(--suave); }
 
   @media (max-width: 760px) {
+    header { padding-top: 1.5rem; }
     main { grid-template-columns: 1fr; }
     .palco { position: static; order: -1; }
     #termos { max-height: 50vh; }
@@ -225,22 +374,57 @@
 <body>
 
 <header>
-  <h1>Acervo Libras</h1>
-  <p>Escolha um termo para assistir ao sinal em Libras.</p>
+  <div>
+    <h1>Acervo Libras</h1>
+    <p>Escolha um termo para assistir ao sinal em Libras.</p>
+  </div>
+  <button class="pilula" id="tema" type="button" aria-pressed="false">
+    <svg id="icone-tema" viewBox="0 0 24 24" aria-hidden="true"></svg>
+    <span id="rotulo-tema">Modo escuro</span>
+  </button>
 </header>
 
 <main>
   <section class="lista" aria-label="Termos">
     <div class="busca">
-      <input id="busca" type="search" placeholder="Buscar termo…" aria-label="Buscar termo">
+      <input id="busca" type="search" placeholder="Buscar termo (atalho: /)" aria-label="Buscar termo" aria-keyshortcuts="/">
+      <div class="filtros" id="filtros" role="group" aria-label="Filtrar por categoria"></div>
+      <div class="resumo">
+        <span id="contagem" aria-live="polite"></span>
+        <button class="limpar" id="limpar" type="button" hidden>Limpar filtros</button>
+      </div>
+      <p class="status" id="status" role="status" hidden></p>
     </div>
-    <div id="termos"><p class="aviso">Carregando termos…</p></div>
+    <div id="termos">
+      <div role="status">
+        <span class="sr-only">Carregando termos…</span>
+        <div class="esq letra-esq"></div>
+        <div class="esq" style="width:62%"></div>
+        <div class="esq" style="width:48%"></div>
+        <div class="esq" style="width:71%"></div>
+        <div class="esq letra-esq"></div>
+        <div class="esq" style="width:55%"></div>
+        <div class="esq" style="width:66%"></div>
+        <div class="esq" style="width:40%"></div>
+      </div>
+    </div>
   </section>
 
   <section class="palco" aria-live="polite">
     <div class="cabecalho-termo">
       <h2 id="titulo">Nenhum termo selecionado</h2>
-      <span class="etiqueta" id="categoria" hidden></span>
+      <button class="pilula favorito" id="favorito" type="button" aria-pressed="false" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="12 2 15.1 8.6 22 9.3 16.8 14 18.2 21 12 17.5 5.8 21 7.2 14 2 9.3 8.9 8.6"/></svg>
+        <span id="rotulo-favorito">Favoritar</span>
+      </button>
+      <div class="etiquetas" id="etiquetas"></div>
+    </div>
+
+    <div class="velocidade" id="velocidade" role="group" aria-label="Velocidade do vídeo" hidden>
+      <span class="rotulo">Velocidade</span>
+      <button class="chip" type="button" data-vel="0.5" aria-pressed="false">0,5×</button>
+      <button class="chip" type="button" data-vel="0.75" aria-pressed="false">0,75×</button>
+      <button class="chip" type="button" data-vel="1" aria-pressed="true">1×</button>
     </div>
 
     <div class="midias" id="midias">
@@ -279,8 +463,104 @@
   const elLista = document.getElementById("termos");
   const elBusca = document.getElementById("busca");
   const elMidias = document.getElementById("midias");
-  let itens = [];
+  const elFiltros = document.getElementById("filtros");
+  const elContagem = document.getElementById("contagem");
+  const elLimpar = document.getElementById("limpar");
+  const elStatus = document.getElementById("status");
+  const elEtiquetas = document.getElementById("etiquetas");
+  const elFavorito = document.getElementById("favorito");
+  const elVelocidade = document.getElementById("velocidade");
 
+  const FAV = "__favoritos__"; // valor especial do filtro de favoritos
+  let itens = [];
+  let categoriaAtiva = ""; // vazio = todas
+  let slugAtual = "";
+
+  // ====== ARMAZENAMENTO (protegido: pode estar bloqueado no navegador) ======
+  const guardar = (chave, valor) => { try { localStorage.setItem(chave, valor); } catch (e) {} };
+  const recuperar = chave => { try { return localStorage.getItem(chave); } catch (e) { return null; } };
+
+  // Quem pede "reduzir movimento" não recebe vídeo tocando sozinho nem em repetição
+  const reduzMovimento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // ====== TEMA (claro / escuro) ======
+  const raiz = document.documentElement;
+  const mqEscuro = window.matchMedia("(prefers-color-scheme: dark)");
+  const ICONE_LUA = '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>';
+  const ICONE_SOL = '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>';
+
+  const temaAtual = () => raiz.dataset.theme || (mqEscuro.matches ? "dark" : "light");
+
+  function atualizarBotaoTema() {
+    const escuro = temaAtual() === "dark";
+    document.getElementById("tema").setAttribute("aria-pressed", escuro);
+    // O botão mostra a ação: no escuro, oferece voltar ao claro
+    document.getElementById("rotulo-tema").textContent = escuro ? "Modo claro" : "Modo escuro";
+    document.getElementById("icone-tema").innerHTML = escuro ? ICONE_SOL : ICONE_LUA;
+  }
+  document.getElementById("tema").addEventListener("click", () => {
+    const novo = temaAtual() === "dark" ? "light" : "dark";
+    raiz.dataset.theme = novo;
+    guardar("acervo-tema", novo);
+    atualizarBotaoTema();
+  });
+  // Sem escolha salva, acompanha o sistema
+  mqEscuro.addEventListener("change", atualizarBotaoTema);
+  atualizarBotaoTema();
+
+  // ====== FAVORITOS ======
+  let favoritos = new Set();
+  try { favoritos = new Set(JSON.parse(recuperar("acervo-favoritos") || "[]")); } catch (e) {}
+  const salvarFavoritos = () => guardar("acervo-favoritos", JSON.stringify([...favoritos]));
+
+  function atualizarBotaoFavorito() {
+    const eh = favoritos.has(slugAtual);
+    elFavorito.setAttribute("aria-pressed", eh);
+    document.getElementById("rotulo-favorito").textContent = eh ? "Favorito" : "Favoritar";
+  }
+  elFavorito.addEventListener("click", () => {
+    if (!slugAtual) return;
+    if (favoritos.has(slugAtual)) favoritos.delete(slugAtual);
+    else favoritos.add(slugAtual);
+    salvarFavoritos();
+    atualizarBotaoFavorito();
+    desenharLista();
+  });
+
+  // ====== VELOCIDADE ======
+  let velocidade = parseFloat(recuperar("acervo-velocidade"));
+  if (![0.5, 0.75, 1].includes(velocidade)) velocidade = 1;
+
+  function marcarBotoesVelocidade() {
+    elVelocidade.querySelectorAll("[data-vel]").forEach(b =>
+      b.setAttribute("aria-pressed", parseFloat(b.dataset.vel) === velocidade));
+  }
+
+  // O YouTube aceita comandos por mensagem quando o embed tem enablejsapi=1.
+  // O player pode demorar a ficar pronto, então o comando é repetido algumas vezes.
+  function velocidadeYouTube(iframe) {
+    const enviar = msg => { try { iframe.contentWindow.postMessage(JSON.stringify(msg), "*"); } catch (e) {} };
+    enviar({ event: "listening", id: 1, channel: "widget" });
+    [0, 500, 1500, 3000].forEach(ms => setTimeout(() =>
+      enviar({ event: "command", func: "setPlaybackRate", args: [velocidade] }), ms));
+  }
+
+  function aplicarVelocidade() {
+    elMidias.querySelectorAll("iframe").forEach(velocidadeYouTube);
+    elMidias.querySelectorAll("video").forEach(v => { v.playbackRate = velocidade; });
+  }
+
+  elVelocidade.addEventListener("click", e => {
+    const b = e.target.closest("[data-vel]");
+    if (!b) return;
+    velocidade = parseFloat(b.dataset.vel);
+    guardar("acervo-velocidade", String(velocidade));
+    marcarBotoesVelocidade();
+    aplicarVelocidade();
+  });
+  marcarBotoesVelocidade();
+
+  // ====== UTILIDADES ======
   // Lê CSV respeitando aspas e vírgulas dentro do texto
   function lerCSV(texto) {
     const linhas = [];
@@ -311,11 +591,67 @@
   const slug = s => normalizar(s).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
-  function desenharLista(filtro = "") {
-    const f = normalizar(filtro.trim());
-    const visiveis = itens.filter(i => normalizar(i.termo).includes(f));
+  // ====== LISTA E FILTROS ======
+  const passaCategoria = i =>
+    !categoriaAtiva ||
+    (categoriaAtiva === FAV ? favoritos.has(i.slug) : i.categorias.includes(categoriaAtiva));
+
+  // Termos que passam na busca e no filtro ativo
+  function filtrar() {
+    const f = normalizar(elBusca.value.trim());
+    return itens.filter(i => passaCategoria(i) && normalizar(i.termo).includes(f));
+  }
+
+  // Botões de categoria; os números respeitam a busca atual
+  function desenharFiltros() {
+    const f = normalizar(elBusca.value.trim());
+    const base = itens.filter(i => normalizar(i.termo).includes(f));
+    const contagem = new Map();
+    for (const i of itens) for (const c of i.categorias) if (!contagem.has(c)) contagem.set(c, 0);
+    for (const i of base) for (const c of i.categorias) contagem.set(c, contagem.get(c) + 1);
+    const nFav = base.filter(i => favoritos.has(i.slug)).length;
+
+    const cats = [...contagem.keys()].sort((a, b) => a.localeCompare(b, "pt-BR"));
+    elFiltros.replaceChildren();
+    if (!cats.length && !favoritos.size) return;
+
+    const criar = (rotulo, valor, n) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "chip";
+      b.dataset.cat = valor;
+      b.setAttribute("aria-pressed", categoriaAtiva === valor);
+      b.append(rotulo);
+      const s = document.createElement("span");
+      s.className = "n";
+      s.textContent = ` ${n}`;
+      b.append(s);
+      return b;
+    };
+    elFiltros.append(criar("Todas", "", base.length));
+    if (favoritos.size || categoriaAtiva === FAV) elFiltros.append(criar("★ Favoritos", FAV, nFav));
+    for (const c of cats) elFiltros.append(criar(c, c, contagem.get(c)));
+  }
+
+  function desenharLista() {
+    const visiveis = filtrar();
+    const filtro = elBusca.value.trim();
+    const rolagem = elLista.scrollTop;
+
+    desenharFiltros();
+    elContagem.textContent = visiveis.length === 1 ? "1 termo" : `${visiveis.length} termos`;
+    elLimpar.hidden = !(filtro || categoriaAtiva);
+
+    if (!itens.length) {
+      elLista.innerHTML = `<p class="aviso">A planilha ainda não tem termos com vídeo ou equivalente.</p>`;
+      return;
+    }
     if (!visiveis.length) {
-      elLista.innerHTML = `<p class="aviso">Nenhum termo encontrado para “${esc(filtro)}”.</p>`;
+      let msg = "Nenhum termo encontrado";
+      if (filtro) msg += ` para “${esc(filtro)}”`;
+      if (categoriaAtiva === FAV) msg += " entre os favoritos";
+      else if (categoriaAtiva) msg += ` na categoria ${esc(categoriaAtiva)}`;
+      elLista.innerHTML = `<p class="aviso">${msg}.</p>`;
       return;
     }
     let html = "", letraAtual = "";
@@ -324,15 +660,85 @@
       if (letra !== letraAtual) { html += `<div class="letra">${letra}</div>`; letraAtual = letra; }
       const atual = location.hash.slice(1) === item.slug;
       const extra = item.variacao > 1 ? ` <span class="var">(${item.variacao})</span>` : "";
-      html += `<button class="termo" data-slug="${item.slug}" aria-current="${atual}">${esc(item.termo)}${extra}</button>`;
+      const estrela = favoritos.has(item.slug)
+        ? ` <span class="estrela" aria-hidden="true">★</span><span class="sr-only"> (favorito)</span>` : "";
+      html += `<button class="termo" data-slug="${item.slug}" aria-current="${atual}">${esc(item.termo)}${extra}${estrela}</button>`;
     }
     elLista.innerHTML = html;
+    elLista.scrollTop = rolagem;
   }
 
-  // Usa textContent para o texto da planilha aparecer exatamente como foi digitado
-  function preencher(campo, texto) {
-    document.getElementById(campo).textContent = texto;
-    document.getElementById("bloco-" + campo).hidden = !texto;
+  function definirCategoria(valor) {
+    categoriaAtiva = valor;
+    desenharLista();
+    elLista.scrollTop = 0;
+  }
+
+  // ====== MÍDIA ======
+  // Monta um bloco de mídia para uma célula (coluna B ou C):
+  // link -> vídeo; texto -> equivalente
+  function criarMidia(valor, titulo, numero, total) {
+    const fig = document.createElement("figure");
+    fig.className = "midia";
+
+    const h = document.createElement("h3");
+    h.className = "secao-titulo";
+    const sufixo = total > 1 ? ` (${numero})` : "";
+
+    const caixa = document.createElement("div");
+    caixa.className = "video";
+    const externo = document.createElement("p");
+    externo.className = "externo";
+
+    if (!ehUrl(valor)) {
+      // Sem link: o texto da célula é o equivalente
+      h.textContent = "Equivalente" + sufixo;
+      caixa.classList.add("equivalente");
+      caixa.textContent = valor;
+    } else {
+      h.textContent = "Sinal em Libras" + sufixo;
+      const id = idYoutube(valor);
+      const ehArquivo = /\.(mp4|webm|mov)(\?|$)/i.test(valor);
+      if (id) {
+        // Em repetição e começando sozinho e sem som (o navegador só permite autoplay com o vídeo mudo).
+        // Com "reduzir movimento" ativo, fica parado até a pessoa apertar play.
+        const auto = reduzMovimento ? 0 : 1;
+        const params = new URLSearchParams({
+          autoplay: auto, mute: 1, loop: auto, playlist: id,
+          controls: 1, disablekb: 1, fs: 0, rel: 0,
+          iv_load_policy: 3, playsinline: 1, modestbranding: 1,
+          enablejsapi: 1
+        });
+        const iframe = document.createElement("iframe");
+        iframe.src = `https://www.youtube.com/embed/${id}?${params}`;
+        iframe.title = titulo + sufixo;
+        iframe.allow = "autoplay; encrypted-media; picture-in-picture";
+        iframe.addEventListener("load", () => velocidadeYouTube(iframe));
+        caixa.appendChild(iframe);
+      } else if (ehArquivo) {
+        const v = document.createElement("video");
+        v.src = valor;
+        v.controls = true;
+        v.autoplay = !reduzMovimento;
+        v.loop = !reduzMovimento;
+        v.muted = true;
+        v.playbackRate = velocidade;
+        v.addEventListener("loadedmetadata", () => { v.playbackRate = velocidade; });
+        v.setAttribute("playsinline", "");
+        caixa.appendChild(v);
+      } else {
+        caixa.textContent = "Este link não pode ser exibido aqui. Use o link abaixo para abrir o vídeo.";
+      }
+      const a = document.createElement("a");
+      a.href = valor;
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.textContent = id ? "Abrir no YouTube" : "Abrir vídeo original";
+      externo.appendChild(a);
+    }
+
+    fig.append(h, caixa, externo);
+    return fig;
   }
 
   // Fonte (coluna F): "Nome", "Nome | https://link" ou só "https://link"
@@ -361,81 +767,40 @@
     }
   }
 
-  // Monta um bloco de mídia para uma célula (coluna B ou C):
-  // link -> vídeo; texto -> equivalente
-  function criarMidia(valor, titulo, numero, total) {
-    const fig = document.createElement("figure");
-    fig.className = "midia";
-
-    const h = document.createElement("h3");
-    h.className = "secao-titulo";
-    const sufixo = total > 1 ? ` (${numero})` : "";
-
-    const caixa = document.createElement("div");
-    caixa.className = "video";
-    const externo = document.createElement("p");
-    externo.className = "externo";
-
-    if (!ehUrl(valor)) {
-      // Sem link: o texto da célula é o equivalente
-      h.textContent = "Equivalente" + sufixo;
-      caixa.classList.add("equivalente");
-      caixa.textContent = valor;
-    } else {
-      h.textContent = "Sinal em Libras" + sufixo;
-      const id = idYoutube(valor);
-      const ehArquivo = /\.(mp4|webm|mov)(\?|$)/i.test(valor);
-      if (id) {
-        // Repetindo sem parar (loop=1 exige playlist=<mesmo id>),
-        // começando sozinho e sem som (o navegador só permite autoplay com o vídeo mudo)
-        const params = new URLSearchParams({
-          autoplay: 1, mute: 1, loop: 1, playlist: id,
-          controls: 1, disablekb: 1, fs: 0, rel: 0,
-          iv_load_policy: 3, playsinline: 1, modestbranding: 1
-        });
-        const iframe = document.createElement("iframe");
-        iframe.src = `https://www.youtube.com/embed/${id}?${params}`;
-        iframe.title = titulo + sufixo;
-        iframe.allow = "autoplay; encrypted-media; picture-in-picture";
-        caixa.appendChild(iframe);
-      } else if (ehArquivo) {
-        const v = document.createElement("video");
-        v.src = valor;
-        v.controls = true; v.autoplay = true; v.loop = true; v.muted = true;
-        v.setAttribute("playsinline", "");
-        caixa.appendChild(v);
-      } else {
-        caixa.textContent = "Este link não pode ser exibido aqui. Use o link abaixo para abrir o vídeo.";
-      }
-      const a = document.createElement("a");
-      a.href = valor;
-      a.target = "_blank";
-      a.rel = "noopener";
-      a.textContent = id ? "Abrir no YouTube" : "Abrir vídeo original";
-      externo.appendChild(a);
-    }
-
-    fig.append(h, caixa, externo);
-    return fig;
+  // Usa textContent para o texto da planilha aparecer exatamente como foi digitado
+  function preencher(campo, texto) {
+    document.getElementById(campo).textContent = texto;
+    document.getElementById("bloco-" + campo).hidden = !texto;
   }
 
   function mostrar(slugTermo) {
     const item = itens.find(i => i.slug === slugTermo);
     if (!item) return;
+    slugAtual = item.slug;
 
     document.getElementById("titulo").textContent =
       item.termo + (item.variacao > 1 ? ` (${item.variacao})` : "");
 
-    // Etiqueta da categoria (coluna G): só aparece se preenchida
-    const elCat = document.getElementById("categoria");
-    elCat.textContent = item.categoria;
-    elCat.hidden = !item.categoria;
+    elFavorito.hidden = false;
+    atualizarBotaoFavorito();
+
+    // Etiquetas (coluna G): uma por categoria; clicar filtra a lista por ela
+    elEtiquetas.replaceChildren(...item.categorias.map(c => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "etiqueta";
+      b.textContent = c;
+      b.dataset.cat = c;
+      b.title = `Ver só a categoria ${c}`;
+      return b;
+    }));
 
     // Mídias: uma ou duas, conforme as colunas B e C estiverem preenchidas
     const valores = [item.midia1, item.midia2].filter(Boolean);
     elMidias.replaceChildren(
       ...valores.map((v, i) => criarMidia(v, item.termo, i + 1, valores.length))
     );
+    elVelocidade.hidden = !valores.some(ehUrl);
 
     preencher("definicao", item.definicao);
     preencher("exemplo", item.exemplo);
@@ -445,13 +810,75 @@
       b.setAttribute("aria-current", b.dataset.slug === slugTermo));
   }
 
+  // ====== EVENTOS ======
   elLista.addEventListener("click", e => {
     const b = e.target.closest(".termo");
     if (b) location.hash = b.dataset.slug;
   });
-  elBusca.addEventListener("input", () => desenharLista(elBusca.value));
+  elFiltros.addEventListener("click", e => {
+    const b = e.target.closest(".chip");
+    if (!b) return;
+    const valor = b.dataset.cat;
+    definirCategoria(valor);
+    // A lista de botões é redesenhada: devolve o foco ao botão clicado
+    const novo = [...elFiltros.children].find(c => c.dataset.cat === valor);
+    if (novo) novo.focus();
+  });
+  elEtiquetas.addEventListener("click", e => {
+    const b = e.target.closest(".etiqueta");
+    if (b) definirCategoria(b.dataset.cat);
+  });
+  elLimpar.addEventListener("click", () => {
+    elBusca.value = "";
+    definirCategoria("");
+  });
+  elBusca.addEventListener("input", () => {
+    desenharLista();
+    elLista.scrollTop = 0;
+  });
   window.addEventListener("hashchange", () => mostrar(location.hash.slice(1)));
 
+  // Teclado: "/" foca a busca; Esc limpa a busca; setas percorrem a lista e abrem o termo
+  document.addEventListener("keydown", e => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const alvo = e.target;
+    const digitando = alvo.matches("input, textarea, select, [contenteditable]");
+
+    if (e.key === "/" && !digitando) {
+      e.preventDefault();
+      elBusca.focus();
+      elBusca.select();
+      return;
+    }
+    if (e.key === "Escape" && alvo === elBusca) {
+      e.preventDefault();
+      if (elBusca.value) { elBusca.value = ""; desenharLista(); }
+      else elBusca.blur();
+      return;
+    }
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    if (alvo !== elBusca && !elLista.contains(alvo)) return;
+
+    const botoes = [...elLista.querySelectorAll(".termo")];
+    if (!botoes.length) return;
+    e.preventDefault();
+
+    let destino;
+    if (alvo === elBusca) {
+      if (e.key === "ArrowUp") return;
+      destino = botoes[0];
+    } else {
+      const i = botoes.indexOf(alvo);
+      if (i < 0) return;
+      if (e.key === "ArrowUp" && i === 0) { elBusca.focus(); return; }
+      destino = botoes[e.key === "ArrowDown" ? Math.min(i + 1, botoes.length - 1) : i - 1];
+    }
+    destino.focus();
+    destino.scrollIntoView({ block: "nearest" });
+    location.hash = destino.dataset.slug;
+  });
+
+  // ====== DADOS DA PLANILHA ======
   // Descobre a coluna de cada campo pelo nome do cabeçalho da planilha.
   // Se algum nome não for encontrado, usa a posição: A, B, C, D, E, F, G.
   function mapaColunas(cabecalho) {
@@ -477,6 +904,61 @@
     return (/^\[erro\s*\d+/i.test(s) || s === "—") ? "" : s;
   }
 
+  // Separa "Saúde, Verbos" em ["Saúde", "Verbos"], sem repetir
+  function listarCategorias(valor) {
+    return [...new Set(valor.split(/[,;]/).map(s => s.trim()).filter(Boolean))];
+  }
+
+  // Transforma o CSV em itens e redesenha a página
+  function aplicar(texto) {
+    const linhas = lerCSV(texto);
+    const col = mapaColunas(linhas[0] || []);
+    const pegar = (l, k) => limpar(l[col[k]]);
+    itens = linhas
+      .slice(1) // pula o cabeçalho
+      .map(l => ({
+        termo:      pegar(l, "termo"),     // A: TERMO
+        midia1:     pegar(l, "midia1"),    // B: LINK-EQUIVALÊNCIA-1
+        midia2:     pegar(l, "midia2"),    // C: LINK-EQUIVALÊNCIA-2
+        definicao:  pegar(l, "definicao"), // D: DEFINIÇÃO
+        exemplo:    pegar(l, "exemplo"),   // E: EXEMPLO
+        fonte:      pegar(l, "fonte"),     // F: FONTE
+        categorias: listarCategorias(pegar(l, "categoria")) // G: CATEGORIA
+      }))
+      .filter(i => i.termo && (i.midia1 || i.midia2))
+      .sort((a, b) => a.termo.localeCompare(b.termo, "pt-BR"));
+    // Termos repetidos ganham número: Gramática (2), Gramática (3)...
+    const contagem = {};
+    for (const item of itens) {
+      const base = slug(item.termo);
+      contagem[base] = (contagem[base] || 0) + 1;
+      item.variacao = contagem[base];
+      item.slug = item.variacao > 1 ? `${base}-${item.variacao}` : base;
+    }
+    // Se a categoria escolhida deixou de existir na planilha, volta para "Todas"
+    if (categoriaAtiva && categoriaAtiva !== FAV && !itens.some(i => i.categorias.includes(categoriaAtiva))) {
+      categoriaAtiva = "";
+    }
+    desenharLista();
+    if (location.hash) mostrar(location.hash.slice(1));
+  }
+
+  // Cópia salva no navegador: abre na hora e funciona sem acesso à planilha
+  const CHAVE_CACHE = "acervo-csv";
+  function lerCache() {
+    try {
+      const c = JSON.parse(recuperar(CHAVE_CACHE));
+      return c && c.texto ? c : null;
+    } catch (e) { return null; }
+  }
+  const salvarCache = texto => guardar(CHAVE_CACHE, JSON.stringify({ t: Date.now(), texto }));
+
+  let textoMostrado = null;
+  const cache = lerCache();
+  if (cache) {
+    try { aplicar(cache.texto); textoMostrado = cache.texto; } catch (e) { console.error(e); }
+  }
+
   // O parâmetro extra evita receber uma cópia antiga guardada pelo navegador
   const urlSemCache = URL_CSV + (URL_CSV.includes("?") ? "&" : "?") + "_=" + Date.now();
 
@@ -484,36 +966,19 @@
     .then(r => { if (!r.ok) throw new Error("A planilha respondeu com erro " + r.status); return r.text(); })
     .then(texto => {
       if (texto.trim().startsWith("<")) throw new Error("O Google devolveu uma página em vez do CSV (planilha não pública ou link errado)");
-      const linhas = lerCSV(texto);
-      const col = mapaColunas(linhas[0] || []);
-      const pegar = (l, k) => limpar(l[col[k]]);
-      itens = linhas
-        .slice(1) // pula o cabeçalho
-        .map(l => ({
-          termo:     pegar(l, "termo"),     // A: TERMO
-          midia1:    pegar(l, "midia1"),    // B: LINK-EQUIVALÊNCIA-1
-          midia2:    pegar(l, "midia2"),    // C: LINK-EQUIVALÊNCIA-2
-          definicao: pegar(l, "definicao"), // D: DEFINIÇÃO
-          exemplo:   pegar(l, "exemplo"),   // E: EXEMPLO
-          fonte:     pegar(l, "fonte"),     // F: FONTE
-          categoria: pegar(l, "categoria")  // G: CATEGORIA
-        }))
-        .filter(i => i.termo && (i.midia1 || i.midia2))
-        .sort((a, b) => a.termo.localeCompare(b.termo, "pt-BR"));
-      // Termos repetidos ganham número: Gramática (2), Gramática (3)...
-      const contagem = {};
-      for (const item of itens) {
-        const base = slug(item.termo);
-        contagem[base] = (contagem[base] || 0) + 1;
-        item.variacao = contagem[base];
-        item.slug = item.variacao > 1 ? `${base}-${item.variacao}` : base;
-      }
-      desenharLista();
-      if (location.hash) mostrar(location.hash.slice(1));
+      salvarCache(texto);
+      elStatus.hidden = true;
+      if (texto !== textoMostrado) aplicar(texto);
     })
     .catch(err => {
       console.error(err);
-      elLista.innerHTML = `<p class="aviso">Não foi possível ler a planilha.<br><small>Detalhe: ${esc(err.message)}</small></p>`;
+      if (textoMostrado !== null) {
+        const quando = new Date(cache.t).toLocaleDateString("pt-BR");
+        elStatus.textContent = `Sem conexão com a planilha. Mostrando a cópia salva em ${quando}; os vídeos precisam de internet.`;
+        elStatus.hidden = false;
+      } else {
+        elLista.innerHTML = `<p class="aviso">Não foi possível ler a planilha.<br><small>Detalhe: ${esc(err.message)}</small></p>`;
+      }
     });
 </script>
 </body>
